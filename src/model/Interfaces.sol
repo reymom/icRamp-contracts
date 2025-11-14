@@ -7,11 +7,6 @@ interface IEscrowManager {
         address _token
     ) external view returns (uint256);
 
-    function getCommitted(
-        address _offramper,
-        address _token
-    ) external view returns (uint256);
-
     function deposit(
         address _offramper,
         address _token,
@@ -24,19 +19,7 @@ interface IEscrowManager {
         uint256 _amount
     ) external;
 
-    function commitDeposit(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external;
-
-    function uncommitDeposit(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external;
-
-    function releaseCommittedFunds(
+    function consumeDeposit(
         address _offramper,
         address _token,
         uint256 _amount

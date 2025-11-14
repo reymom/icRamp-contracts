@@ -43,13 +43,6 @@ contract IcRamp is Ownable, ReentrancyGuard, IRamp {
         return escrowManager.getDeposit(_user, _token);
     }
 
-    function getCommitted(
-        address _user,
-        address _token
-    ) external view returns (uint256) {
-        return escrowManager.getCommitted(_user, _token);
-    }
-
     function isValidToken(address _token) external view returns (bool) {
         return tokenManager.isValidToken(_token);
     }
@@ -118,22 +111,6 @@ contract IcRamp is Ownable, ReentrancyGuard, IRamp {
         }
     }
 
-    function commitDeposit(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external nonReentrant onlyIcpEvmCanister {
-        escrowManager.commitDeposit(_offramper, _token, _amount);
-    }
-
-    function uncommitDeposit(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external nonReentrant onlyIcpEvmCanister {
-        escrowManager.uncommitDeposit(_offramper, _token, _amount);
-    }
-
     /*
      * ONRAMPER
      */
@@ -148,9 +125,9 @@ contract IcRamp is Ownable, ReentrancyGuard, IRamp {
         if (_onramper == address(0)) revert Errors.ZeroAddress();
         if (_token == address(0)) revert Errors.ZeroAddress();
 
-        escrowManager.releaseCommittedFunds(_offramper, _token, _amount);
-        IERC20(_token).safeTransfer(_onramper, _amount - _fees);
+        escrowManager.consumeDeposit(_offramper, _token, _amount);
 
+        IERC20(_token).safeTransfer(_onramper, _amount - _fees);
         escrowManager.trackFees(icpEvmCanister, _token, _fees);
     }
 
@@ -163,9 +140,9 @@ contract IcRamp is Ownable, ReentrancyGuard, IRamp {
         if (_offramper == address(0)) revert Errors.ZeroAddress();
         if (_onramper == address(0)) revert Errors.ZeroAddress();
 
-        escrowManager.releaseCommittedFunds(_offramper, address(0), _amount);
-        payable(_onramper).transfer(_amount - _fees);
+        escrowManager.consumeDeposit(_offramper, address(0), _amount);
 
+        payable(_onramper).transfer(_amount - _fees);
         escrowManager.trackFees(icpEvmCanister, address(0), _fees);
     }
 

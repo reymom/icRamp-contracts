@@ -9,20 +9,13 @@ import {Errors} from "../model/Errors.sol";
 contract EscrowManager is Ownable, ReentrancyGuard, IEscrowManager {
     // offramper => token => deposit amount
     mapping(address => mapping(address => uint256)) private deposits;
-    // offramper => token => committed amount
-    mapping(address => mapping(address => uint256)) private committed;
 
     constructor(address _owner) Ownable(_owner) {}
 
     event FeeTracked(address indexed user, address indexed token, uint256 fees);
     event Deposit(address indexed user, address indexed token, uint256 amount);
     event Withdraw(address indexed user, address indexed token, uint256 amount);
-    event DepositCommitted(
-        address indexed user,
-        address indexed token,
-        uint256 amount
-    );
-    event DepositUncommitted(
+    event DepositConsumed(
         address indexed user,
         address indexed token,
         uint256 amount
@@ -37,13 +30,6 @@ contract EscrowManager is Ownable, ReentrancyGuard, IEscrowManager {
         address _token
     ) external view returns (uint256) {
         return deposits[_offramper][_token];
-    }
-
-    function getCommitted(
-        address _offramper,
-        address _token
-    ) external view returns (uint256) {
-        return committed[_offramper][_token];
     }
 
     /*********
@@ -76,47 +62,19 @@ contract EscrowManager is Ownable, ReentrancyGuard, IEscrowManager {
         emit Withdraw(_offramper, _token, _amount);
     }
 
-    function commitDeposit(
+    function consumeDeposit(
         address _offramper,
         address _token,
         uint256 _amount
-    ) external onlyOwner {
+    ) external nonReentrant onlyOwner {
         if (_offramper == address(0)) revert Errors.ZeroAddress();
-        if (_amount <= 0) revert Errors.ZeroAmount();
-        if (deposits[_offramper][_token] < _amount)
+        if (_amount == 0) revert Errors.ZeroAmount();
+        if (deposits[_offramper][_token] < _amount) {
             revert Errors.InsufficientFunds();
+        }
 
         deposits[_offramper][_token] -= _amount;
-        committed[_offramper][_token] += _amount;
-        emit DepositCommitted(_offramper, _token, _amount);
-    }
-
-    function uncommitDeposit(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external onlyOwner {
-        if (_offramper == address(0)) revert Errors.ZeroAddress();
-        if (_amount <= 0) revert Errors.ZeroAmount();
-        if (committed[_offramper][_token] < _amount)
-            revert Errors.InsufficientFunds();
-
-        committed[_offramper][_token] -= _amount;
-        deposits[_offramper][_token] += _amount;
-        emit DepositUncommitted(_offramper, _token, _amount);
-    }
-
-    function releaseCommittedFunds(
-        address _offramper,
-        address _token,
-        uint256 _amount
-    ) external onlyOwner {
-        if (_offramper == address(0)) revert Errors.ZeroAddress();
-        if (_amount <= 0) revert Errors.ZeroAmount();
-        if (committed[_offramper][_token] < _amount)
-            revert Errors.InsufficientFunds();
-
-        committed[_offramper][_token] -= _amount;
+        emit DepositConsumed(_offramper, _token, _amount);
     }
 
     function trackFees(
