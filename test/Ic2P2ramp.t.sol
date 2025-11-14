@@ -50,44 +50,6 @@ contract Ic2P2rampTest is Test {
         vm.stopPrank();
     }
 
-    function testCommitDepositToken() public {
-        vm.startPrank(offramper);
-        usdt.mint(offramper, 1e18);
-        usdt.approve(address(ic2P2ramp), 1e18);
-        ic2P2ramp.depositToken(address(usdt), 1e18);
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(usdt), 5e17);
-        assertEq(ic2P2ramp.getDeposit(offramper, address(usdt)), 5e17);
-        vm.stopPrank();
-    }
-
-    function testCommitDepositTokenUnallowed() public {
-        vm.startPrank(offramper);
-        usdt.mint(offramper, 1e18);
-        usdt.approve(address(ic2P2ramp), 1e18);
-        vm.startPrank(offramper);
-        ic2P2ramp.depositToken(address(usdt), 1e18);
-        vm.expectRevert();
-        ic2P2ramp.commitDeposit(offramper, address(0), 1e18);
-        vm.stopPrank();
-    }
-
-    function testUncommitDepositToken() public {
-        vm.startPrank(offramper);
-        usdt.mint(offramper, 1e18);
-        usdt.approve(address(ic2P2ramp), 1e18);
-        ic2P2ramp.depositToken(address(usdt), 1e18);
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(usdt), 5e17);
-        ic2P2ramp.uncommitDeposit(offramper, address(usdt), 5e17);
-        assertEq(ic2P2ramp.getDeposit(offramper, address(usdt)), 1e18);
-        vm.stopPrank();
-    }
-
     function testReleaseFundsToken() public {
         vm.startPrank(offramper);
         usdt.mint(offramper, 1e18);
@@ -120,33 +82,6 @@ contract Ic2P2rampTest is Test {
         ic2P2ramp.depositToken(address(usdt), 1e18);
         vm.expectRevert();
         ic2P2ramp.withdrawToken(address(usdt), 2e18);
-        vm.stopPrank();
-    }
-
-    function testCommitDepositInsufficientEscrow() public {
-        vm.startPrank(offramper);
-        usdt.mint(offramper, 1e18);
-        usdt.approve(address(ic2P2ramp), 1e18);
-        ic2P2ramp.depositToken(address(usdt), 1e18);
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        vm.expectRevert(Errors.InsufficientFunds.selector);
-        ic2P2ramp.commitDeposit(offramper, address(usdt), 2e18);
-        vm.stopPrank();
-    }
-
-    function testUncommitDepositInsufficientEscrow() public {
-        vm.startPrank(offramper);
-        usdt.mint(offramper, 1e18);
-        usdt.approve(address(ic2P2ramp), 1e18);
-        ic2P2ramp.depositToken(address(usdt), 1e18);
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(usdt), 5e17);
-        vm.expectRevert();
-        ic2P2ramp.uncommitDeposit(offramper, address(usdt), 2e18);
         vm.stopPrank();
     }
 
@@ -195,56 +130,6 @@ contract Ic2P2rampTest is Test {
         ic2P2ramp.depositBaseCurrency{value: 1e18}();
         ic2P2ramp.withdrawBaseCurrency(5e17);
         assertEq(ic2P2ramp.getDeposit(offramper, address(0)), 5e17);
-        vm.stopPrank();
-    }
-
-    function testCommitDepositBaseCurrency() public {
-        vm.deal(offramper, 1e18);
-        vm.startPrank(offramper);
-        ic2P2ramp.depositBaseCurrency{value: 1e18}();
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(0), 5e17);
-        assertEq(ic2P2ramp.getDeposit(offramper, address(0)), 5e17);
-        vm.stopPrank();
-    }
-
-    function testCommitDepositBaseCurrencyUnallowed() public {
-        vm.deal(offramper, 1e18);
-        vm.startPrank(offramper);
-        ic2P2ramp.depositBaseCurrency{value: 1e18}();
-        vm.expectRevert();
-        ic2P2ramp.commitDeposit(offramper, address(0), 5e17);
-        vm.stopPrank();
-    }
-
-    function testUncommitDepositBaseCurrency() public {
-        vm.deal(offramper, 1e18);
-        vm.startPrank(offramper);
-        ic2P2ramp.depositBaseCurrency{value: 1e18}();
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(0), 5e17);
-        ic2P2ramp.uncommitDeposit(offramper, address(0), 5e17);
-        assertEq(ic2P2ramp.getDeposit(offramper, address(0)), 1e18);
-        vm.stopPrank();
-    }
-
-    function testUncommitDepositBaseCurrencyUnallowed() public {
-        vm.deal(offramper, 1e18);
-        vm.startPrank(offramper);
-        ic2P2ramp.depositBaseCurrency{value: 1e18}();
-        vm.stopPrank();
-
-        vm.startPrank(icpBackend);
-        ic2P2ramp.commitDeposit(offramper, address(0), 5e17);
-        vm.stopPrank();
-
-        vm.startPrank(offramper);
-        vm.expectRevert();
-        ic2P2ramp.uncommitDeposit(offramper, address(0), 5e17);
         vm.stopPrank();
     }
 
