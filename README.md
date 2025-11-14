@@ -26,6 +26,10 @@ This repository contains escrow management contracts for an onramping protocol i
 | Optimism | IcRamp        | 0x1A7817Dabf851a05da8cE0cd2D8D1EA0c8140783 |
 | Arbitrum | IcRamp        | 0x6CCa814490d7d835E4349C875eE23467a0684e81 |
 
+| Network | Contract Name              | Address                                    |
+| ------- | -------------------------- | ------------------------------------------ |
+| Sepolia | IcRamp (no-commit version) | 0xE1De1dd26B1CF389fD108C208268Fb0154A5EB32 |
+
 ## Contract Details
 
 ### icRamp Contract
@@ -77,3 +81,58 @@ A set of scripts is provided to deploy the contracts and perform various managem
 
 4. **Manage funds**:
    Utilize transfer_to_canister.sh and TransferEth.s.sol to manage the movement of funds between the canister and the contract.
+
+### icRamp Contract v2
+
+The current `IcRamp` contract manages deposits, withdrawals, and escrow for ERC20 tokens and native currency, but **does not keep a separate committed balance on-chain anymore**. All “lock / unlock” logic lives in the ICP canisters; EVM only sees:
+
+- raw deposits from offrampers,
+- withdrawals (cancel),
+- releases (successful fills),
+- fee accounting.
+
+The ICP EVM canister is the only address allowed to perform withdrawals and releases.
+
+#### Core Functions
+
+- `depositToken(address _token, uint256 _amount)`
+  Offramper deposits `_amount` of an ERC20 token into escrow. EscrowManager updates its internal mapping, then the vault pulls tokens with `safeTransferFrom`.
+
+- `depositBaseCurrency()`
+  Offramper deposits native currency (e.g. ETH). `msg.value` is tracked in EscrowManager under `token = address(0)`.
+
+- `withdrawToken(address _offramper, address _token, uint256 _amount, uint256 _fees)`
+  Callable only by the ICP EVM canister. Decreases the offramper’s escrow balance by `_amount`.
+
+  - If `_offramper == icpEvmCanister`, sends the full `_amount` (no fee).
+  - Otherwise, sends `_amount - _fees` and books `_fees` to `icpEvmCanister` via `trackFees`.
+
+- `withdrawBaseCurrency(address _offramper, uint256 _amount, uint256 _fees)`
+  Same as above but for native currency (`address(0)` in EscrowManager).
+
+- `releaseToken(address _offramper, address _onramper, address _token, uint256 _amount, uint256 _fees)`
+  Called by the ICP EVM canister when an order fill is finalized.
+
+  - `consumeDeposit` burns `_amount` from the offramper’s escrow balance.
+  - Sends `_amount - _fees` of the token to `_onramper`.
+  - Credits `_fees` to `icpEvmCanister` via `trackFees`.
+
+- `releaseBaseCurrency(address _offramper, address _onramper, uint256 _amount, uint256 _fees)`
+  Same semantics, but for native currency.
+
+- `addValidTokens(address[] memory _tokens)` / `removeValidTokens(address[] memory _tokens)`
+  Manage the allowlist of ERC20s this vault will accept.
+
+- `setIcpEvmCanister(address _icpEvmCanister)`
+  Updates the controller canister that is allowed to call `withdraw*` and `release*`.
+
+#### EscrowManager Events
+
+Escrow state is factored out into `EscrowManager`, which only trusts its owner (the IcRamp contract):
+
+- `Deposit(address indexed user, address indexed token, uint256 amount)`
+- `Withdraw(address indexed user, address indexed token, uint256 amount)`
+- `DepositConsumed(address indexed user, address indexed token, uint256 amount)`
+- `FeeTracked(address indexed user, address indexed token, uint256 fees)`
+
+The old `DepositCommitted` / `DepositUncommitted` events and `commitDeposit/uncommitDeposit` functions are no longer used in this version; locking is handled off-chain (ICP state) and only final actions hit the EVM vault.
